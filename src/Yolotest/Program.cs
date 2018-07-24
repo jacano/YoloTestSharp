@@ -1,5 +1,6 @@
 ﻿using Alturos.Yolo;
-using System.IO;
+using OpenCvSharp;
+using System.Linq;
 
 namespace Yolotest
 {
@@ -7,17 +8,34 @@ namespace Yolotest
     {
         static void Main(string[] args)
         {
-            var data = File.ReadAllBytes(@"Motorbike1.jpg");
+            var windowCapture = new Window("windowCapture");
+            var capture = new VideoCapture(0);
+            var image = new Mat();
+            var yoloWrapper = new YoloWrapper("yolov2-tiny-voc.cfg", "yolov2-tiny-voc.weights", "voc.names", DetectionSystem.GPU);
 
-            using (var yoloWrapper = new YoloWrapper("yolov2-tiny-voc.cfg", "yolov2-tiny-voc.weights", "voc.names"))
+            while (true)
             {
-                var items = yoloWrapper.Detect(data);
-                //items[0].Type -> "Person, Car, ..."
-                //items[0].Confidence -> 0.0 (low) -> 1.0 (high)
-                //items[0].X -> bounding box
-                //items[0].Y -> bounding box
-                //items[0].Width -> bounding box
-                //items[0].Height -> bounding box
+                capture.Read(image);
+                if (image.Empty())
+                    break;
+
+                var bytes = image.ToBytes(".png");
+                var items = yoloWrapper.Detect(bytes).ToArray();
+
+                foreach (var item in items)
+                {
+                    var value = (item.Confidence * 100).ToString("0");
+                    var text = $"{item.Type} - {value}%";
+                    ImageUtilHelper.AddBoxToImage(image, text, item.X, item.Y, item.X + item.Width, item.Y + item.Height);
+                }
+
+                windowCapture.ShowImage(image);
+
+                if ((Cv2.WaitKey(25) & 0xFF) == 'q')
+                {
+                    Cv2.DestroyAllWindows();
+                    break;
+                }
             }
         }
     }

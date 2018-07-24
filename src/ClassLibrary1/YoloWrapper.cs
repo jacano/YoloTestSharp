@@ -15,7 +15,6 @@ namespace Alturos.Yolo
         private const string YoloLibraryGpu = @"x64\yolo_cpp_dll_gpu.dll";
         private Dictionary<int, string> _objectType = new Dictionary<int, string>();
         public DetectionSystem DetectionSystem = DetectionSystem.Unknown;
-        public EnvironmentReport EnvironmentReport { get; private set; }
 
         #region DllImport Cpu
 
@@ -55,14 +54,14 @@ namespace Alturos.Yolo
 
         #endregion
 
-        public YoloWrapper(YoloConfiguration yoloConfiguration)
+        public YoloWrapper(YoloConfiguration yoloConfiguration, DetectionSystem detectionSystem)
         {
             this.Initialize(yoloConfiguration.ConfigFile, yoloConfiguration.WeightsFile, yoloConfiguration.NamesFile, 0);
         }
 
-        public YoloWrapper(string configurationFilename, string weightsFilename, string namesFilename, int gpu = 0)
+        public YoloWrapper(string configurationFilename, string weightsFilename, string namesFilename, DetectionSystem detectionSystem, int gpu = 0)
         {
-            this.Initialize(configurationFilename, weightsFilename, namesFilename, gpu);
+            this.Initialize(configurationFilename, weightsFilename, namesFilename, detectionSystem, gpu);
         }
 
         public void Dispose()
@@ -78,20 +77,14 @@ namespace Alturos.Yolo
             }
         }
 
-        private void Initialize(string configurationFilename, string weightsFilename, string namesFilename, int gpu = 0)
+        private void Initialize(string configurationFilename, string weightsFilename, string namesFilename, DetectionSystem detectionSystem, int gpu = 0)
         {
             if (IntPtr.Size != 8)
             {
                 throw new NotSupportedException("Only 64-bit process are supported");
             }
 
-            this.EnvironmentReport = this.GetEnvironmentReport();
-
-            this.DetectionSystem = DetectionSystem.CPU;
-            if (this.EnvironmentReport.CudaExists)
-            {
-                this.DetectionSystem = DetectionSystem.GPU;
-            }
+            DetectionSystem = detectionSystem;
 
             switch (this.DetectionSystem)
             {
@@ -107,7 +100,8 @@ namespace Alturos.Yolo
 
                     var deviceName = new StringBuilder(); //allocate memory for string
                     GetDeviceName(gpu, deviceName);
-                    this.EnvironmentReport.GraphicDeviceName = deviceName.ToString();
+                    var deviceNameData = deviceName.ToString();
+                    Console.WriteLine($"Using: {deviceNameData}");
 
                     InitializeYoloGpu(configurationFilename, weightsFilename, gpu);
                     break;
@@ -118,19 +112,6 @@ namespace Alturos.Yolo
             {
                 this._objectType.Add(i, lines[i]);
             }
-        }
-
-        private EnvironmentReport GetEnvironmentReport()
-        {
-            var report = new EnvironmentReport();
-
-            var envirormentVariables = Environment.GetEnvironmentVariables(EnvironmentVariableTarget.Machine);
-            if (envirormentVariables.Contains("CUDA_PATH"))
-            {
-                report.CudaExists = true;
-            }
-
-            return report;
         }
 
         public IEnumerable<YoloItem> Detect(byte[] imageData)
