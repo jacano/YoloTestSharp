@@ -1,0 +1,3 @@
+[submodule "src/yolov3/darknet"]
+	path = src/yolov3/darknet
+	url = ../../AlexeyAB/darknet.git
